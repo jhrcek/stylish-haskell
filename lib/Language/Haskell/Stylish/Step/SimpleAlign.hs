@@ -13,6 +13,7 @@ module Language.Haskell.Stylish.Step.SimpleAlign
 import           Data.Either                     (partitionEithers)
 import           Data.Foldable                   (toList)
 import           Data.List                       (foldl1', sortOn)
+import qualified Data.List                       as List
 import           Data.Maybe                      (fromMaybe)
 import qualified GHC.Hs                          as Hs
 import qualified GHC.Parser.Annotation           as GHC
@@ -117,7 +118,7 @@ matchToAlignable (GHC.L matchLoc m@(Hs.Match _ Hs.CaseAlt pats@(_ : _) grhss)) =
       pat        = last patsLocs
       guards     = getGuards m
       guardsLocs = map GHC.getLocA guards
-      left       = foldl' GHC.combineSrcSpans pat guardsLocs
+      left       = List.foldl' GHC.combineSrcSpans pat guardsLocs
   body     <- rhsBody grhss
   matchPos <- GHC.srcSpanToRealSrcSpan $ GHC.locA matchLoc
   leftPos  <- GHC.srcSpanToRealSrcSpan left
