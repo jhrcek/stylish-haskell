@@ -606,7 +606,7 @@ isQualified = (/=) GHC.NotQualified . GHC.ideclQualified
 isHiding :: GHC.ImportDecl GHC.GhcPs -> Bool
 isHiding d = case GHC.ideclImportList d of
   Just (GHC.EverythingBut, _) -> True
-  _ -> False
+  _                           -> False
 
 isSource :: GHC.ImportDecl GHC.GhcPs -> Bool
 isSource = (==) GHC.IsBoot . GHC.ideclSource
@@ -638,7 +638,7 @@ prepareImportList =
   prepareInner :: GHC.IE GHC.GhcPs -> GHC.IE GHC.GhcPs
   prepareInner = \case
     -- Simplify `A ()` to `A`.
-    GHC.IEThingWith x n GHC.NoIEWildcard [] md -> GHC.IEThingAbs x n md
+    GHC.IEThingWith (x, _) n GHC.NoIEWildcard [] md -> GHC.IEThingAbs x n md
     GHC.IEThingWith x n w ns md ->
       GHC.IEThingWith x n w (sortBy (compareWrappedName `on` GHC.unLoc) ns) md
     ie -> ie

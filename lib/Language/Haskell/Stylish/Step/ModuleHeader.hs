@@ -21,6 +21,8 @@ import qualified GHC.Types.SrcLoc                      as GHC
 
 
 --------------------------------------------------------------------------------
+--import qualified GHC.Parser.Annotation                 as GHC
+import qualified GHC.Unit.Module.Warnings              as GHC
 import           Language.Haskell.Stylish.Comments
 import qualified Language.Haskell.Stylish.Editor       as Editor
 import           Language.Haskell.Stylish.GHC
@@ -30,8 +32,6 @@ import           Language.Haskell.Stylish.Printer
 import           Language.Haskell.Stylish.Step
 import qualified Language.Haskell.Stylish.Step.Imports as Imports
 import           Language.Haskell.Stylish.Util         (flagEnds)
-import qualified GHC.Unit.Module.Warnings as GHC
-
 
 data Config = Config
     { indent        :: Int
@@ -81,18 +81,17 @@ printModuleHeader maxCols conf ls lmodul =
                 loc <- GHC.getLocA <$> GHC.hsmodExports modul
                 GHC.srcSpanEndLine <$> GHC.srcSpanToRealSrcSpan loc)
 
-        keywordLine kw = listToMaybe $ do
-            GHC.EpAnn {..} <- pure $ GHC.hsmodAnn $ GHC.hsmodExt modul
-            GHC.AddEpAnn kw' (GHC.EpaSpan (GHC.RealSrcSpan s _)) <- GHC.am_main anns
-            guard $ kw == kw'
-            pure $ GHC.srcSpanEndLine s
+        modAnn = GHC.hsmodAnn $ GHC.hsmodExt modul
 
-        moduleLine = keywordLine GHC.AnnModule
-        whereLine = keywordLine GHC.AnnWhere
+        moduleLine =
+            fmap GHC.srcSpanEndLine . GHC.srcSpanToRealSrcSpan . GHC.getHasLoc $ GHC.am_mod $ GHC.anns modAnn
+
+        whereLine =
+            fmap GHC.srcSpanEndLine . GHC.srcSpanToRealSrcSpan . GHC.getHasLoc $ GHC.am_where $ GHC.anns modAnn
 
         commentOnLine l = listToMaybe $ do
-            comment <- epAnnComments $ GHC.hsmodAnn $ GHC.hsmodExt modul
-            guard $ GHC.srcSpanStartLine (GHC.anchor $ GHC.getLoc comment) == l
+            comment <- epAnnComments modAnn
+            guard $ GHC.srcSpanStartLine (GHC.epaLocationRealSrcSpan $ GHC.getLoc comment) == l
             pure comment
 
         moduleComment = moduleLine >>= commentOnLine

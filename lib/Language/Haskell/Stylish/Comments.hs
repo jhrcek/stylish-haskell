@@ -9,15 +9,16 @@ module Language.Haskell.Stylish.Comments
     , commentGroupSort
     ) where
 
-
+import qualified GHC.Utils.Outputable as GHC
+import Debug.Trace
 --------------------------------------------------------------------------------
 import           Data.Function                  (on)
 import           Data.List                      (sortBy, sortOn)
 import           Data.Maybe                     (isNothing, maybeToList)
 import qualified GHC.Hs                         as GHC
+--import qualified GHC.Parser.Annotation          as GHC
 import qualified GHC.Types.SrcLoc               as GHC
 import qualified GHC.Utils.Outputable           as GHC
-
 
 --------------------------------------------------------------------------------
 import           Language.Haskell.Stylish.Block
@@ -44,7 +45,7 @@ instance GHC.Outputable a => Show (CommentGroup a) where
 
 --------------------------------------------------------------------------------
 commentGroups
-    :: forall a.
+    :: forall a. GHC.Outputable a =>
        (a -> Maybe GHC.RealSrcSpan)
     -> [a]
     -> [GHC.LEpaComment]
@@ -61,15 +62,18 @@ commentGroups getSpan allItems allComments =
     commentsWithLines :: [(LineBlock, GHC.LEpaComment)]
     commentsWithLines = do
         comment <- allComments
-        let s = GHC.anchor $ GHC.getLoc comment
+        let s = GHC.epaLocationRealSrcSpan $ GHC.getLoc comment
         pure (realSrcSpanToLineBlock s, comment)
 
     work
-        :: Maybe (CommentGroup a)
+        :: (GHC.Outputable a)=>Maybe (CommentGroup a)
         -> [(LineBlock, a)]
         -> [(LineBlock, GHC.LEpaComment)]
         -> [CommentGroup a]
-    work mbCurrent items comments = case takeNext items comments of
+    work mbCurrent items comments = case takeNext (trace ("items=" <>
+                 concatMap (\(bl,item) -> "(" <> show bl <> "," <> GHC.showSDocUnsafe (GHC.ppr item) <> ")") items) items)
+                                                  (trace ("comments=" <>
+                                                     concatMap (\(bl,cmt) -> "(" <> show bl <> "," <> GHC.showSDocUnsafe (GHC.ppr cmt) <> ")") comments) comments) of
         Nothing -> maybeToList mbCurrent
         Just (b, next, items', comments') ->
             let (flush, current) = case mbCurrent of
@@ -83,8 +87,13 @@ commentGroups getSpan allItems allComments =
                 current' = case next of
                     NextItem i -> current {cgItems = cgItems current <> [(i, Nothing)]}
                     NextComment c
-                        | null (cgItems current) -> current {cgPrior = cgPrior current <> [c]}
-                        | otherwise -> current {cgFollowing = cgFollowing current <> [c]}
+                        | null (cgItems current) -> current {cgPrior = cgPrior current
+  -- TODO this line adds the comment in 8 failing test cases
+  -- but when removed 23 other (disjoint) test cases fail
+                          <> [trace ("ADD prior " <>GHC.showSDocUnsafe (GHC.ppr c)) c]
+
+                        }
+                        | otherwise -> current {cgFollowing = cgFollowing current <> [trace ("ADD following " <>GHC.showSDocUnsafe (GHC.ppr c)) c]}
                     NextItemWithComment i c ->
                         current {cgItems = cgItems current <> [(i, Just c)]} in
             flush ++ work (Just current') items' comments'

@@ -36,19 +36,12 @@ squash l r
 
 --------------------------------------------------------------------------------
 squashFieldDecl :: GHC.ConDeclField GHC.GhcPs -> Editor.Edits
-squashFieldDecl (GHC.ConDeclField ext names@(_ : _) type' _)
+squashFieldDecl (GHC.ConDeclField tok names@(_ : _) type' _)
     | Just left <- GHC.srcSpanToRealSrcSpan . GHC.getLocA $ last names
-    , Just sep <- fieldDeclSeparator ext
+    , Just sep <- GHC.srcSpanToRealSrcSpan $ GHC.getHasLoc tok
     , Just right <- GHC.srcSpanToRealSrcSpan $ GHC.getLocA type' =
         squash left sep <> squash sep right
 squashFieldDecl _ = mempty
-
-
---------------------------------------------------------------------------------
-fieldDeclSeparator :: [GHC.AddEpAnn]-> Maybe GHC.RealSrcSpan
-fieldDeclSeparator anns = listToMaybe $ do
-    GHC.AddEpAnn GHC.AnnDcolon (GHC.EpaSpan (GHC.RealSrcSpan s _)) <- anns
-    pure s
 
 
 --------------------------------------------------------------------------------
@@ -65,17 +58,19 @@ squashMatch lmatch = case GHC.m_grhss match of
   where
     match = GHC.unLoc lmatch
     mbLeft = case match of
-        GHC.Match _ (GHC.FunRhs name _ _) [] _ ->
-            GHC.srcSpanToRealSrcSpan $ GHC.getLocA name
-        GHC.Match _ _ pats@(_ : _) _ ->
-            GHC.srcSpanToRealSrcSpan . GHC.getLocA $ last pats
+        GHC.Match _ (GHC.FunRhs name _ _ _) (GHC.L _ []) _ ->
+            GHC.srcSpanToRealSrcSpan $ GHC.getHasLoc name
+        GHC.Match _ _ (GHC.L _ pats@(_ : _)) _ ->
+            GHC.srcSpanToRealSrcSpan . GHC.getHasLoc $ last pats
         _ -> Nothing
 
 
 --------------------------------------------------------------------------------
 matchSeparator :: GHC.EpAnn GHC.GrhsAnn -> Maybe GHC.RealSrcSpan
-matchSeparator GHC.EpAnn {..}
-    | GHC.AddEpAnn _ (GHC.EpaSpan (GHC.RealSrcSpan s _)) <- GHC.ga_sep anns = Just s
+matchSeparator GHC.EpAnn {..} =
+    case GHC.ga_sep anns of
+        Left equalsToken -> GHC.srcSpanToRealSrcSpan $ GHC.getHasLoc equalsToken
+        Right arrowToken -> GHC.srcSpanToRealSrcSpan $ GHC.getHasLoc arrowToken
 matchSeparator _ = Nothing
 
 

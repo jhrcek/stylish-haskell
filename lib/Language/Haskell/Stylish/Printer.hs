@@ -162,16 +162,17 @@ nameAnnAdornment :: GHC.NameAnn -> (String, String)
 nameAnnAdornment = \case
     GHC.NameAnn {..}       -> fromAdornment nann_adornment
     GHC.NameAnnCommas {..} -> fromAdornment nann_adornment
-    GHC.NameAnnBars {..}   -> fromAdornment nann_adornment
+    GHC.NameAnnBars {}     -> ("(#", "#)")
     GHC.NameAnnOnly {..}   -> fromAdornment nann_adornment
     GHC.NameAnnRArrow {}   -> (mempty, mempty)
     GHC.NameAnnQuote {}    -> ("'", mempty)
     GHC.NameAnnTrailing {} -> (mempty, mempty)
   where
-    fromAdornment GHC.NameParens     = ("(", ")")
-    fromAdornment GHC.NameBackquotes = ("`", "`")
-    fromAdornment GHC.NameParensHash = ("#(", "#)")
-    fromAdornment GHC.NameSquare     = ("[", "]")
+    fromAdornment GHC.NameParens{}     = ("(", ")")
+    fromAdornment GHC.NameBackquotes{} = ("`", "`")
+    fromAdornment GHC.NameParensHash{} = ("#(", "#)")
+    fromAdornment GHC.NameSquare{}     = ("[", "]")
+    fromAdornment GHC.NameNoAdornment  = ("", "")
 
 -- | Print module name
 putModuleName :: GHC.ModuleName -> P ()
@@ -197,7 +198,7 @@ putType ltp = case GHC.unLoc ltp of
       (comma >> space)
       (fmap putType xs)
     putText "]"
-  GHC.HsExplicitTupleTy _ xs -> do
+  GHC.HsExplicitTupleTy _ _ xs -> do
     putText "'("
     sep
       (comma >> space)

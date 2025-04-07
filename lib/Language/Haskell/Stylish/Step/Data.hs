@@ -15,7 +15,8 @@ module Language.Haskell.Stylish.Step.Data
   , step
   ) where
 
-
+import Debug.Trace
+import qualified GHC.Utils.Outputable as GHC
 --------------------------------------------------------------------------------
 import           Control.Monad                     (forM_, unless, when)
 import           Data.Foldable                     (toList)
@@ -91,21 +92,22 @@ step :: Config -> Step
 step cfg = makeStep "Data" \ls m -> Editor.apply (changes m) ls
   where
     changes :: Module -> Editor.Edits
-    changes = foldMap (formatDataDecl cfg) . dataDecls
+    changes = foldMap (formatDataDecl cfg . (\x -> trace (GHC.showSDocUnsafe $ GHC.ppr $ dataComments x) x)) . dataDecls
 
-    getComments :: GHC.AddEpAnn -> [GHC.LEpaComment]
-    getComments (GHC.AddEpAnn _ epaLoc) = case epaLoc of
-        GHC.EpaDelta _ comments -> comments
-        GHC.EpaSpan _ -> []
+    getComments :: GHC.EpAnnComments -> [GHC.LEpaComment]
+    getComments eac = case eac of
+        GHC.EpaComments cs              -> cs
+        GHC.EpaCommentsBalanced cs1 cs2 -> cs1 ++ cs2
 
     dataDecls :: Module -> [DataDecl]
     dataDecls m = do
         ldecl <- GHC.hsmodDecls $ GHC.unLoc m
-        GHC.TyClD _ tycld <- pure $ GHC.unLoc ldecl
+        GHC.L epAnn (GHC.TyClD _ tycld) <- pure ldecl
         loc <- maybeToList $ GHC.srcSpanToRealSrcSpan $ GHC.getLocA ldecl
         case tycld of
             GHC.DataDecl {..} -> pure $ MkDataDecl
-                { dataComments = foldMap getComments tcdDExt
+            -- TODO where are data decl comments now?
+                { dataComments = getComments $ GHC.comments epAnn -- [] -- foldMap getComments tcdDExt
                 , dataLoc      = loc
                 , dataDeclName = tcdLName
                 , dataTypeVars = tcdTyVars

@@ -31,6 +31,7 @@ import qualified GHC.Driver.Ppr                                      as GHC (sho
 import           GHC.Driver.Session                                  (defaultDynFlags)
 import qualified GHC.Driver.Session                                  as GHC
 import qualified GHC.Hs                                              as GHC
+--import qualified GHC.Parser.Annotation                               as GHC
 import           GHC.Types.SrcLoc                                    (GenLocated (..),
                                                                       Located,
                                                                       RealLocated,
@@ -41,7 +42,6 @@ import           GHC.Types.SrcLoc                                    (GenLocated
 import qualified GHC.Types.SrcLoc                                    as GHC
 import qualified GHC.Utils.Outputable                                as GHC
 import qualified Language.Haskell.GhclibParserEx.GHC.Settings.Config as GHCEx
-
 unsafeGetRealSrcSpan :: Located a -> RealSrcSpan
 unsafeGetRealSrcSpan = \case
   (L (RealSrcSpan s _) _) -> s
@@ -73,7 +73,7 @@ baseDynFlags = defaultDynFlags GHCEx.fakeSettings
 
 getConDecls :: GHC.HsDataDefn GHC.GhcPs -> [GHC.LConDecl GHC.GhcPs]
 getConDecls d@GHC.HsDataDefn {} = case GHC.dd_cons d of
-  GHC.NewTypeCon con -> [con]
+  GHC.NewTypeCon con      -> [con]
   GHC.DataTypeCons _ cons -> cons
 
 showOutputable :: GHC.Outputable a => a -> String
@@ -86,6 +86,6 @@ deepAnnComments :: (Data a, Typeable a) => a -> [GHC.LEpaComment]
 deepAnnComments = everything (++) (mkQ [] priorAndFollowing)
 
 priorAndFollowing :: GHC.EpAnnComments -> [GHC.LEpaComment]
-priorAndFollowing = sortOn (GHC.anchor . GHC.getLoc) . \case
+priorAndFollowing = sortOn (GHC.epaLocationRealSrcSpan . GHC.getLoc) . \case
     GHC.EpaComments         {..} -> priorComments
     GHC.EpaCommentsBalanced {..} -> priorComments ++ followingComments
